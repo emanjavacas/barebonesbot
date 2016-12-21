@@ -24,9 +24,12 @@ class WikiQuoteBot(UserClient):
     config_file : str
         Path to the JSON config file. It must at least contain the values
         for ["tokens"]["consumer_key"] and ["tokens"]["consumer_secret"].
-    terms_file : str
-        Path to a file with terms (possibly author names) to query for.
-        Format is one term per line (commas are not allowed).
+    authors : list, optional
+        List of author to be quoted. It will be overwritten
+        by the corresponding value in the config file if available.
+    hist_file : str, optional
+        path to the history file, it will override default "~/.WikiQuoteBot".
+        It will be overwritten by the config file if available.
     max_chars : int, optional
         Maximum length of a quote in characters allowed. It will be overwritten
         by the corresponding value in the config file if available.

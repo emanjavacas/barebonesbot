@@ -1,0 +1,17 @@
+{
+    "tokens":
+    {
+	"consumer_key": "",
+	"consumer_secret": "",
+	"access_token": "",
+	"access_token_secret": ""
+    },
+    "authors": [
+	"Barack Obama",
+	"Angela Merkel"
+    ],
+    "max_chars": 500,
+    "max_sents": 3,
+    "penalize": 2,
+    "max_retries": 10
+}
