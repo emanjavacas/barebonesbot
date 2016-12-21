@@ -31,7 +31,7 @@ class RetryException(Exception):
 
 
 def get_history_file():
-    return os.path.join(os.path.expanduser("~"), ".EMMAQuote")
+    return os.path.join(os.path.expanduser("~"), ".WikiQuoteBot")
 
 
 def parse_config(path_to_config):
@@ -52,22 +52,30 @@ def parse_config(path_to_config):
     return config
 
 
-def read_terms(terms_file):
+def touchopen(filename, *args, **kwargs):
+    """
+    Ensure the file exists before a open-truncate (r+) file mode open
+    """
+    open(filename, "a").close()  # "touch" file
+    return open(filename, *args, **kwargs)
+
+
+def read_history(history_file, authors):
     """
     Returns a dict of author names to their tweet history.
     Each entry in the tweet history is a hash of a succesfully tweeted quote
     """
     try:
-        with open(terms_file, 'r') as f:
+        with open(history_file, 'r') as f:
             output = {}
             for line in f:
                 author, *hist = line.split(",")
                 output[author.strip()] = hist
-            if not output:
-                raise ValueError("Empty terms file [%s]" % terms_file)
-            return output
+            return {author: output.get(author, []) for author in authors}
     except FileNotFoundError:
-        logger.info("Couldn't open terms file [%s]" % terms_file)
+        return {author: [] for author in authors}
+    except IOError:
+        logger.info("Couldn't open history file [%s]" % history_file)
         raise sys.exit(1)
 
 
