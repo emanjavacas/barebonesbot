@@ -183,9 +183,10 @@ class WikiQuoteBot(UserClient):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
+    parser.add_argument("config_file")
     parser.add_argument("-r", "--real-run", action="store_true", default=False)
     args = parser.parse_args()
 
     # dry run by default
-    client = WikiQuoteBot("../config.json", debug=not args.real_run)
+    client = WikiQuoteBot(args.config_file, debug=not args.real_run)
     client.run()
