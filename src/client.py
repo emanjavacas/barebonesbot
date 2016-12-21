@@ -73,7 +73,7 @@ class WikiQuoteBot(UserClient):
         utils.logger.info("TWEETED: " + message)
         if not self.debug:
             tweet_data = self.api.statuses.update.post(status=message)
-        utils.logger.info(str(tweet_data))
+            utils.logger.info(str(tweet_data))
 
     def tweet_quote(self, author, quote):
         """Tweet a quote by a given author processing the text to
