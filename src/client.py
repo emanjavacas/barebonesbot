@@ -28,8 +28,8 @@ class WikiQuoteBot(UserClient):
         List of author to be quoted. It will be overwritten
         by the corresponding value in the config file if available.
     hist_file : str, optional
-        path to the history file, it will override default "~/.WikiQuoteBot".
-        It will be overwritten by the config file if available.
+        path to the history file, it will override the value in the config
+        file if available and the default "~/.WikiQuoteBot".
     max_chars : int, optional
         Maximum length of a quote in characters allowed. It will be overwritten
         by the corresponding value in the config file if available.
@@ -58,7 +58,10 @@ class WikiQuoteBot(UserClient):
             tokens.get("access_token", ""),
             tokens.get("access_token_secret", "")
         )
-        self.hist_file = hist_file or utils.get_history_file()
+        self.hist_file = \
+            hist_file or \
+            config.get("hist_file") or \
+            utils.get_history_file()
         self.authors = authors or config.get("authors")
         self.max_sents = config.get("max_sents") or max_sents
         self.max_chars = config.get("max_chars") or max_chars
