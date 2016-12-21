@@ -48,9 +48,12 @@ class WikiQuoteBot(UserClient):
                  max_sents=3, max_chars=500, max_retries=10, penalize=2,
                  debug=False):
         config = utils.parse_config(config_file)
+        tokens = config.get("tokens", {})
         super(WikiQuoteBot, self).__init__(
-            config["tokens"]["consumer_key"],
-            config["tokens"]["consumer_secret"]
+            tokens.get("consumer_key", ""),
+            tokens.get("consumer_secret", ""),
+            tokens.get("access_token", ""),
+            tokens.get("access_token_secret", "")
         )
         self.hist_file = hist_file or utils.get_history_file()
         self.authors = authors or config.get("authors")
@@ -63,7 +66,8 @@ class WikiQuoteBot(UserClient):
     def _tweet(self, message):
         utils.logger.info("TWEETED: " + message)
         if not self.debug:
-            self.api.statuses.update.post(status=message)
+            tweet_data = self.api.statuses.update.post(status=message)
+            utils.logger.info(str(tweet_data))
 
     def tweet_quote(self, author, quote):
         """Tweet a quote by a given author processing the text to
