@@ -7,14 +7,17 @@ from collections import Counter
 from random import random
 from itertools import takewhile
 
+from segtok.segmenter import split_single
+
 import logging
 logging.basicConfig(
     level=logging.INFO, format='%(asctime)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-PART = '({part}/{total})'
-MAX_LENGTH = 140 - len(PART.format(part=0, total=0))
-TWEET = "{author}: {quote}"
+PART = ' ({part}/{total})'
+REPLY_PREFIX = '@{username} '
+MAX_LENGTH = 140
+TWEET = '{author}: "{quote}"'
 
 
 class ConfigParseException(Exception):
@@ -79,6 +82,18 @@ def read_history(history_file, authors):
         raise sys.exit(1)
 
 
+def get_max_length(author, username, idx):
+    boilerplate = TWEET.format(author=author, quote="")
+    boilerplate += PART.format(part=idx, total=10)  # assume 1 char more
+    if True:  #  idx > 0:  # This will have to be changed once we know how to
+        # mutate a variable in the local scope of a generator from outside
+        # For now, we waste some extra (~15) chars in the first part of a
+        # complex tweet
+        username = username or "a15charlongname"
+        boilerplate += REPLY_PREFIX.format(username=username)
+    return MAX_LENGTH - len(boilerplate)
+
+
 def partition_sent(sent, max_length):
     """
     partitions a tokenized sent in chunks of max possible
@@ -91,30 +106,32 @@ def partition_sent(sent, max_length):
         if len(acc) + len(next_word) + 1 < max_length:
             acc += next_word + " "
         else:
-            yield acc
+            yield acc.strip()
             acc = next_word + " "
     else:
-        yield acc
+        yield acc.strip()
 
 
-def get_max_length(author):
-    return MAX_LENGTH - len(TWEET.format(author=author, quote=""))
-
-
-def partition_quote(author, sents, idx=0):
+def partition_quote(author, quote, username):
     """
     partitions a quote in sentences as per `segtok`, and further each
     sent inside a quote if its length is still longer than Twitter length.
     """
-    for sent in sents:
-        tweet = TWEET.format(author=author, quote=sent)
-        if len(tweet) > MAX_LENGTH:
-            subtweets = partition_sent(sent.split(), get_max_length(author))
-            for subidx, subtweet in partition_quote(author, subtweets, idx):
-                yield subidx, subtweet
+    idx = 0
+    subquotes = split_single(quote)
+    for subquote in subquotes:
+        max_length = get_max_length(author, username, idx)
+        if len(subquote) > max_length:
+            subquotes = partition_sent(subquote.split(), max_length)
+            for subsubquote in subquotes:
+                yield idx, subsubquote
                 idx += 1
+                # We need to be able to modify the value assigned to max_length
+                # inside partition_sent from outside the generator.
+                # Perhaps using coroutines as follows?:
+                # subquotes.send(get_max_length(author, username, idx))
         else:
-            yield idx, tweet
+            yield idx, subquote
             idx += 1
 
 

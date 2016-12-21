@@ -24,30 +24,36 @@ class WikiQuoteBot(UserClient):
     config_file : str
         Path to the JSON config file. It must at least contain the values
         for ["tokens"]["consumer_key"] and ["tokens"]["consumer_secret"].
+    username : str, optional
+        Twitter username used to group complex tweets using replies. It is
+        used to compute the extra length of the tweet taken by the user 
+        mention. Username will be considered 15-char long (i.e. Twitter's
+        username max length) if not given.
     authors : list, optional
-        List of author to be quoted. It will be overwritten
-        by the corresponding value in the config file if available.
+        List of author to be quoted. It will overwrite
+        the corresponding value in the config file if available.
     hist_file : str, optional
         path to the history file, it will override the value in the config
         file if available and the default "~/.WikiQuoteBot".
     max_chars : int, optional
-        Maximum length of a quote in characters allowed. It will be overwritten
-        by the corresponding value in the config file if available.
+        Maximum length of a quote in characters allowed. It will overwrite
+        the corresponding value in the config file if available.
     max_sents : int, optional
-        Maximum length of a quote in sents allowed. It will be overwritten
-        by the corresponding value in the config file if available.
+        Maximum length of a quote in sents allowed. It will overwrite
+        the corresponding value in the config file if available.
     max_retries : int, optional
         Maximum number of retries on failing tweet attempt (caused by
-        unavailability of the author in wikiquote, ...). It will be overwritten
-        by the corresponding value in the config file if available.
+        unavailability of the author in wikiquote, ...). It will overwrite
+        the corresponding value in the config file if available.
     penalize : int, optional
         A parameter to tune the degree of downsampling of authors or quotes
-        that have already been sampled. It will be overwritten
-        by the corresponding value in the config file if available.
+        that have already been sampled. It will overwrite
+        the corresponding value in the config file if available.
     debug : bool, optional
         Run the module in debug mode.
     """
-    def __init__(self, config_file, authors=None, hist_file=None,
+    def __init__(self, config_file,
+                 username=None, authors=None, hist_file=None,
                  max_sents=3, max_chars=500, max_retries=10, penalize=2,
                  debug=False):
         config = utils.parse_config(config_file)
@@ -58,6 +64,7 @@ class WikiQuoteBot(UserClient):
             tokens.get("access_token", ""),
             tokens.get("access_token_secret", "")
         )
+        self.username = username or config.get("username")
         self.hist_file = \
             hist_file or \
             config.get("hist_file") or \
@@ -69,11 +76,21 @@ class WikiQuoteBot(UserClient):
         self.max_retries = config.get("max_retries") or max_retries
         self.debug = debug
 
-    def _tweet(self, message):
-        utils.logger.info("TWEETED: " + message)
+    def _tweet(self, status, reply_id=None, reply_name=None):
+        if reply_id and reply_name:
+            status = utils.REPLY_PREFIX.format(username=reply_name) + status
+
+        utils.logger.info("TWEETED: " + status)
+
         if not self.debug:
-            tweet_data = self.api.statuses.update.post(status=message)
-            utils.logger.info(str(tweet_data))
+            if reply_id and reply_name:
+                tweet_data = self.api.statuses.update.post(
+                    status=status,
+                    in_reply_to_status_id=reply_id)
+            else:
+                tweet_data = self.api.statuses.update.post(status=status)
+            return tweet_data.data
+            
 
     def tweet_quote(self, author, quote):
         """Tweet a quote by a given author processing the text to
@@ -91,15 +108,22 @@ class WikiQuoteBot(UserClient):
             self._tweet(tweet)
         else:
             sents = list(split_single(quote))
+            name, tweet_id = None, None
             if len(sents) > self.max_sents or len(quote) > self.max_chars:
                 msg = DISMISS_SENT % (author, len(sents), len(quote), quote)
                 raise utils.RetryException(msg, author)
             else:
-                subtweets = list(utils.partition_quote(author, sents))
-                for part, tweet in subtweets:
+                subquotes = list(utils.partition_quote(author, quote, self.username))
+                for part, subquote in subquotes:
                     part += 1
-                    tweet += utils.PART.format(part=part, total=len(subtweets))
-                    self._tweet(tweet)
+                    tweet = utils.TWEET.format(author=author, quote=subquote)
+                    tweet += utils.PART.format(part=part, total=len(subquotes))
+                    if tweet_id and name:
+                        self._tweet(tweet, reply_id=tweet_id, reply_name=name)
+                    else:
+                        tweet_data = self._tweet(tweet)
+                        tweet_id = tweet_data.get("id")
+                        name = tweet_data.get("user", {}).get("screen_name")
 
     def pick_author(self, authors_hist):
         """Sample an author from the input authors taking into account the
