@@ -85,10 +85,7 @@ def read_history(history_file, authors):
 def get_max_length(author, username, idx):
     boilerplate = TWEET.format(author=author, quote="")
     boilerplate += PART.format(part=idx, total=10)  # assume 1 char more
-    if True:  #  idx > 0:  # This will have to be changed once we know how to
-        # mutate a variable in the local scope of a generator from outside
-        # For now, we waste some extra (~15) chars in the first part of a
-        # complex tweet
+    if idx > 0:
         username = username or "a15charlongname"
         boilerplate += REPLY_PREFIX.format(username=username)
     return MAX_LENGTH - len(boilerplate)
@@ -97,16 +94,17 @@ def get_max_length(author, username, idx):
 def partition_sent(sent, max_length):
     """
     partitions a tokenized sent in chunks of max possible
-    length that is less than `max_length`
+    length that is less than `max_length`. `max_length` can
+    be altered by a coroutine using generator.send()
     """
-    acc = ""
+    acc, comax_length = "", None
     sent.reverse()
     while sent:
         next_word = sent.pop()
-        if len(acc) + len(next_word) + 1 < max_length:
+        if len(acc) + len(next_word) < (comax_length or max_length):
             acc += next_word + " "
         else:
-            yield acc.strip()
+            comax_length = yield acc.strip()
             acc = next_word + " "
     else:
         yield acc.strip()
@@ -123,13 +121,15 @@ def partition_quote(author, quote, username):
         max_length = get_max_length(author, username, idx)
         if len(subquote) > max_length:
             subquotes = partition_sent(subquote.split(), max_length)
-            for subsubquote in subquotes:
-                yield idx, subsubquote
-                idx += 1
-                # We need to be able to modify the value assigned to max_length
-                # inside partition_sent from outside the generator.
-                # Perhaps using coroutines as follows?:
-                # subquotes.send(get_max_length(author, username, idx))
+            comax_length = None
+            while True:
+                try:
+                    subsubquote = subquotes.send(comax_length)
+                    yield idx, subsubquote
+                    comax_length = get_max_length(author, username, idx)
+                    idx += 1
+                except StopIteration:
+                    break
         else:
             yield idx, subquote
             idx += 1
