@@ -1,12 +1,18 @@
 #!/usr/bin/env python
 
-from setuptools import setup
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
+
 
 setup(
-    name='WikiQuoteBot',
+    name='BarebonesBot',
     version='0.1',
-    description='A configurable Twitter-bot for WikiQuotes',
+    description='A configurable Twitter-bot',
     author='Enrique Manjavacas',
     license='MIT',
-    install_requires=['wikiquote>=0.1.4', 'birdy>=0.2', 'segtok>=1.5.1']
+    install_requires=[
+        'birdy>=0.2'
+    ]
 )

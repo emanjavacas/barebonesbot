@@ -7,8 +7,6 @@ from collections import Counter
 from random import random
 from itertools import takewhile
 
-from segtok.segmenter import split_single
-
 import logging
 logging.basicConfig(
     level=logging.INFO, format='%(asctime)s: %(message)s')
@@ -17,7 +15,7 @@ logger = logging.getLogger(__name__)
 PART = ' ({part}/{total})'
 REPLY_PREFIX = '@{username} '
 MAX_LENGTH = 140
-TWEET = '{author}: "{quote}"'
+TWEET = '{referrer}: "{tweet}"'
 
 
 class ConfigParseException(Exception):
@@ -27,14 +25,14 @@ class ConfigParseException(Exception):
 
 
 class RetryException(Exception):
-    def __init__(self, message, author):
+    def __init__(self, message, referrer):
         super(RetryException, self).__init__(message)
         self.message = message
-        self.author = author
+        self.referrer = referrer
 
 
 def get_history_file():
-    return os.path.join(os.path.expanduser("~"), ".WikiQuoteBot")
+    return os.path.join(os.path.expanduser("~"), ".BarebonsBot")
 
 
 def parse_config(path_to_config):
@@ -63,27 +61,27 @@ def touchopen(filename, *args, **kwargs):
     return open(filename, *args, **kwargs)
 
 
-def read_history(history_file, authors):
+def read_history(history_file):
     """
-    Returns a dict of author names to their tweet history.
+    Returns a dict of referrer names to their tweet history.
     Each entry in the tweet history is a hash of a succesfully tweeted quote
     """
     try:
         with open(history_file, 'r') as f:
             output = {}
             for line in f:
-                author, *hist = line.split(",")
-                output[author.strip()] = hist
-            return {author: output.get(author, []) for author in authors}
+                referrer, *hist = line.split(",")
+                output[referrer.strip()] = hist
+            return output
     except FileNotFoundError:
-        return {author: [] for author in authors}
+        return {}
     except IOError:
         logger.info("Couldn't open history file [%s]" % history_file)
         raise sys.exit(1)
 
 
-def get_max_length(author, username, idx):
-    boilerplate = TWEET.format(author=author, quote="")
+def get_max_length(referrer, username, idx):
+    boilerplate = TWEET.format(referrer=referrer, tweet="")
     boilerplate += PART.format(part=idx, total=10)  # assume 1 char more
     if idx > 0:
         username = username or "a15charlongname"
@@ -91,7 +89,7 @@ def get_max_length(author, username, idx):
     return MAX_LENGTH - len(boilerplate)
 
 
-def partition_sent(sent, max_length):
+def partition_text(sent, max_length):
     """
     partitions a tokenized sent in chunks of max possible
     length that is less than `max_length`. `max_length` can
@@ -110,29 +108,21 @@ def partition_sent(sent, max_length):
         yield acc.strip()
 
 
-def partition_quote(author, quote, username):
+def partition_tweet(referrer, tweet, username):
     """
-    partitions a quote in sentences as per `segtok`, and further each
-    sent inside a quote if its length is still longer than Twitter length.
+    partitions a text to be tweeted in tweets according to Twitter length.
     """
-    idx = 0
-    subquotes = split_single(quote)
-    for subquote in subquotes:
-        max_length = get_max_length(author, username, idx)
-        if len(subquote) > max_length:
-            subquotes = partition_sent(subquote.split(), max_length)
-            comax_length = None
-            while True:
-                try:
-                    subsubquote = subquotes.send(comax_length)
-                    yield idx, subsubquote
-                    comax_length = get_max_length(author, username, idx)
-                    idx += 1
-                except StopIteration:
-                    break
-        else:
-            yield idx, subquote
+    idx, comax_length = 0, None
+    max_length = get_max_length(referrer, username, idx)
+    subtweets = partition_text(tweet.split(), max_length)
+    while True:
+        try:
+            subsubtweet = subtweets.send(comax_length)
+            yield idx, subsubtweet
             idx += 1
+            comax_length = get_max_length(referrer, username, idx)
+        except StopIteration:
+            break
 
 
 def accumulate(iterator):
