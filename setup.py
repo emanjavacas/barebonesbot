@@ -7,8 +7,10 @@ except ImportError:
 
 
 setup(
-    name='BarebonesBot',
+    name='barebonesbot',
     version='0.1',
+    package_dir={'barebonesbot': 'src'},
+    packages=['barebonesbot'],
     description='A configurable Twitter-bot',
     author='Enrique Manjavacas',
     author_email='enrique.manjavacas@gmail.com',

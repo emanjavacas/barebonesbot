@@ -1,6 +1,6 @@
 
-from .bot import BarebonesBot
-from .utils import RetryException
+from .src import BarebonesBot
+from .src import RetryException
 
 __all__ = [
     'BarebonesBot',
