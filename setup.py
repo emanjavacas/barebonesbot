@@ -8,7 +8,7 @@ except ImportError:
 
 setup(
     name='barebonesbot',
-    version='0.2',
+    version='0.3',
     package_dir={'barebonesbot': 'src'},
     packages=['barebonesbot'],
     description='A configurable Twitter-bot',
